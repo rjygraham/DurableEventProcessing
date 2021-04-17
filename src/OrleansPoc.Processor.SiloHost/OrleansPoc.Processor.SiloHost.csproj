@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk;Microsoft.NET.Sdk.Publish">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <UserSecretsId>f9e4ead1-cfa0-4acb-82d1-754dddbadabf</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.17.1" />
+    <PackageReference Include="Microsoft.Azure.EventHubs" Version="4.3.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Orleans.Clustering.AzureStorage" Version="3.4.2" />
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.4.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Orleans.Hosting.Kubernetes" Version="3.4.2" />
+    <PackageReference Include="Microsoft.Orleans.OrleansRuntime" Version="3.4.2" />
+    <PackageReference Include="Microsoft.Orleans.OrleansServiceBus" Version="3.4.2" />
+    <PackageReference Include="Microsoft.Orleans.OrleansTelemetryConsumers.AI" Version="3.4.2" />
+    <PackageReference Include="Microsoft.Orleans.Persistence.AzureStorage" Version="3.4.2" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.10.13" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OrleansPoc.Entities\OrleansPoc.Entities.csproj" />
+    <ProjectReference Include="..\OrleansPoc.Processor.Grains\OrleansPoc.Processor.Grains.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Config\" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+	<OutputType>Exe</OutputType>
+	<TargetFramework>net5.0</TargetFramework>
+	<ServerGarbageCollection>true</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+	<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	<PackageReference Include="Microsoft.Azure.EventHubs" Version="4.3.1" />
+	<PackageReference Include="Microsoft.Extensions.Hosting" Version="5.0.0" />
+	<PackageReference Include="Microsoft.Orleans.Clustering.AzureStorage" Version="3.4.2" />
+	<PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.4.2">
+	  <PrivateAssets>all</PrivateAssets>
+	  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	</PackageReference>
+	<PackageReference Include="Microsoft.Orleans.Hosting.Kubernetes" Version="3.4.2" />
+	<PackageReference Include="Microsoft.Orleans.OrleansRuntime" Version="3.4.2" />
+	<PackageReference Include="Microsoft.Orleans.OrleansServiceBus" Version="3.4.2" />
+	<PackageReference Include="Microsoft.Orleans.Persistence.AzureStorage" Version="3.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OrleansPoc.Models\OrleansPoc.Models.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "OrleansPoc.Processor.SiloHost": {
+      "commandName": "Project",
+      "commandLineArgs": "--environment Development"
+    },
+    "Docker": {
+      "commandName": "Docker",
+      "commandLineArgs": "--environment Development"
+    }
+  }
+}

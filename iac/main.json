@@ -1,0 +1,1245 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.3.255.40792",
+      "templateHash": "8119524335803871521"
+    }
+  },
+  "parameters": {
+    "regions": {
+      "type": "array",
+      "metadata": {
+        "description": "Regions to which the the solution will be deployed."
+      },
+      "allowedValues": [
+        "brazilsouth",
+        "canadacentral",
+        "centralus",
+        "eastus",
+        "eastus2",
+        "francecentral",
+        "japaneast",
+        "northeurope",
+        "southcentralus",
+        "southeastasia",
+        "uksouth",
+        "westeurope",
+        "westus2"
+      ]
+    },
+    "primaryRegionIndex": {
+      "type": "int",
+      "metadata": {
+        "description": "Zero based index of the region from list of regions with will serve as the primary metadata region."
+      }
+    },
+    "name": {
+      "type": "string",
+      "metadata": {
+        "description": "Short application name. Should be 4 characters or less."
+      }
+    },
+    "environment": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the environment (e.g. dev, test, prod, sndbx). Should be 5 charaters or less."
+      }
+    },
+    "eventHubSku": {
+      "type": "string",
+      "allowedValues": [
+        "Basic",
+        "Standard"
+      ]
+    },
+    "evHubMessageRetentionInDays": {
+      "type": "int",
+      "maxValue": 7,
+      "minValue": 1
+    },
+    "evHubPartitionCount": {
+      "type": "int"
+    },
+    "aksKubernetesVersion": {
+      "type": "string"
+    },
+    "aksEnableRbac": {
+      "type": "bool"
+    },
+    "aksNetworkPlugin": {
+      "type": "string"
+    },
+    "aksEnablePrivateCluster": {
+      "type": "bool"
+    },
+    "aksEnableHttpApplicationRouting": {
+      "type": "bool"
+    },
+    "aksEnableOmsAgent": {
+      "type": "bool"
+    },
+    "aksEnableAzurePolicy": {
+      "type": "bool"
+    },
+    "aksEnableAutoScaling": {
+      "type": "bool"
+    },
+    "logAnalyticsResourceId": {
+      "type": "string"
+    }
+  },
+  "functions": [],
+  "variables": {
+    "environmentName": "[format('{0}-{1}', parameters('name'), parameters('environment'))]",
+    "sharedName": "[format('{0}-core', variables('environmentName'))]",
+    "regionNameMap": {
+      "brazilsouth": "bzs",
+      "canadacentral": "cac",
+      "centralus": "cus",
+      "eastus": "eus",
+      "eastus2": "eus2",
+      "francecentral": "frc",
+      "japaneast": "jpe",
+      "northeurope": "neu",
+      "southcentralus": "scus",
+      "southeastasia": "sea",
+      "uksouth": "uks",
+      "westeurope": "weu",
+      "westus2": "wus2"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2020-10-01",
+      "name": "[toUpper(format('{0}-CORE', variables('environmentName')))]",
+      "location": "[parameters('regions')[parameters('primaryRegionIndex')]]"
+    },
+    {
+      "copy": {
+        "name": "regionResourceGroups",
+        "count": "[length(parameters('regions'))]"
+      },
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2020-10-01",
+      "name": "[toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))]",
+      "location": "[parameters('regions')[parameters('primaryRegionIndex')]]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2019-10-01",
+      "name": "core.deployment",
+      "resourceGroup": "[toUpper(format('{0}-CORE', variables('environmentName')))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "coreName": {
+            "value": "[toLower(format('{0}-core', variables('environmentName')))]"
+          },
+          "regions": {
+            "value": "[parameters('regions')]"
+          },
+          "primaryRegionIndex": {
+            "value": "[parameters('primaryRegionIndex')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.3.255.40792",
+              "templateHash": "3752338233445726482"
+            }
+          },
+          "parameters": {
+            "coreName": {
+              "type": "string"
+            },
+            "regions": {
+              "type": "array"
+            },
+            "primaryRegionIndex": {
+              "type": "int"
+            }
+          },
+          "functions": [],
+          "variables": {
+            "sqlDatabaseName": "sensors",
+            "grainsContainerName": "grains",
+            "location": "[parameters('regions')[parameters('primaryRegionIndex')]]",
+            "frontDoorName": "[format('{0}-fd', parameters('coreName'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+              "apiVersion": "2021-03-01-preview",
+              "name": "[format('{0}/{1}/{2}', format('{0}-cosmosdb', parameters('coreName')), variables('sqlDatabaseName'), variables('grainsContainerName'))]",
+              "properties": {
+                "resource": {
+                  "id": "[variables('grainsContainerName')]",
+                  "partitionKey": {
+                    "paths": [
+                      "/pk"
+                    ],
+                    "kind": "Hash"
+                  },
+                  "defaultTtl": 180
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('{0}-cosmosdb', parameters('coreName')))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', format('{0}-cosmosdb', parameters('coreName')), variables('sqlDatabaseName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+              "apiVersion": "2021-03-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-cosmosdb', parameters('coreName')), variables('sqlDatabaseName'))]",
+              "properties": {
+                "resource": {
+                  "id": "[variables('sqlDatabaseName')]"
+                },
+                "options": {
+                  "autoscaleSettings": {
+                    "maxThroughput": 4000
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('{0}-cosmosdb', parameters('coreName')))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "replications",
+                "count": "[length(skip(parameters('regions'), 1))]"
+              },
+              "type": "Microsoft.ContainerRegistry/registries/replications",
+              "apiVersion": "2020-11-01-preview",
+              "name": "[format('{0}/{1}', toLower(replace(format('{0}acr', parameters('coreName')), '-', '')), skip(parameters('regions'), 1)[copyIndex()])]",
+              "location": "[skip(parameters('regions'), 1)[copyIndex()]]",
+              "properties": {
+                "regionEndpointEnabled": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerRegistry/registries', toLower(replace(format('{0}acr', parameters('coreName')), '-', '')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts",
+              "apiVersion": "2021-03-01-preview",
+              "name": "[format('{0}-cosmosdb', parameters('coreName'))]",
+              "location": "[variables('location')]",
+              "properties": {
+                "copy": [
+                  {
+                    "name": "locations",
+                    "count": "[length(parameters('regions'))]",
+                    "input": {
+                      "locationName": "[parameters('regions')[copyIndex('locations')]]",
+                      "failoverPriority": "[copyIndex('locations')]",
+                      "isZoneRedundant": true
+                    }
+                  }
+                ],
+                "createMode": "Default",
+                "databaseAccountOfferType": "Standard",
+                "enableMultipleWriteLocations": true
+              }
+            },
+            {
+              "type": "Microsoft.ContainerRegistry/registries",
+              "apiVersion": "2020-11-01-preview",
+              "name": "[toLower(replace(format('{0}acr', parameters('coreName')), '-', ''))]",
+              "location": "[variables('location')]",
+              "sku": {
+                "name": "Premium"
+              },
+              "properties": {}
+            }
+          ],
+          "outputs": {
+            "comsosDbName": {
+              "type": "string",
+              "value": "[format('{0}-cosmosdb', parameters('coreName'))]"
+            },
+            "containerRegistryName": {
+              "type": "string",
+              "value": "[toLower(replace(format('{0}acr', parameters('coreName')), '-', ''))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', toUpper(format('{0}-CORE', variables('environmentName'))))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "regionDeployments",
+        "count": "[length(parameters('regions'))]"
+      },
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2019-10-01",
+      "name": "[format('region.{0}.deployment', parameters('regions')[copyIndex()])]",
+      "resourceGroup": "[toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('regions')[copyIndex()]]"
+          },
+          "coreResourceGroupName": {
+            "value": "[toUpper(format('{0}-CORE', variables('environmentName')))]"
+          },
+          "nodeResourceGroupName": {
+            "value": "[format('{0}-NODES', toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]])))]"
+          },
+          "regionalName": {
+            "value": "[format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]])]"
+          },
+          "eventHubSku": {
+            "value": "[parameters('eventHubSku')]"
+          },
+          "evHubMessageRetentionInDays": {
+            "value": "[parameters('evHubMessageRetentionInDays')]"
+          },
+          "evHubPartitionCount": {
+            "value": "[parameters('evHubPartitionCount')]"
+          },
+          "aksKubernetesVersion": {
+            "value": "[parameters('aksKubernetesVersion')]"
+          },
+          "aksEnableRbac": {
+            "value": "[parameters('aksEnableRbac')]"
+          },
+          "aksNetworkPlugin": {
+            "value": "[parameters('aksNetworkPlugin')]"
+          },
+          "aksEnablePrivateCluster": {
+            "value": "[parameters('aksEnablePrivateCluster')]"
+          },
+          "aksEnableHttpApplicationRouting": {
+            "value": "[parameters('aksEnableHttpApplicationRouting')]"
+          },
+          "aksEnableOmsAgent": {
+            "value": "[parameters('aksEnableOmsAgent')]"
+          },
+          "aksEnableAzurePolicy": {
+            "value": "[parameters('aksEnableAzurePolicy')]"
+          },
+          "aksEnableAutoScaling": {
+            "value": "[parameters('aksEnableAutoScaling')]"
+          },
+          "logAnalyticsResourceId": {
+            "value": "[parameters('logAnalyticsResourceId')]"
+          },
+          "cosmosDbAccountName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-CORE', variables('environmentName')))), 'Microsoft.Resources/deployments', 'core.deployment'), '2019-10-01').outputs.comsosDbName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.3.255.40792",
+              "templateHash": "9102675600908602182"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "coreResourceGroupName": {
+              "type": "string"
+            },
+            "nodeResourceGroupName": {
+              "type": "string"
+            },
+            "regionalName": {
+              "type": "string"
+            },
+            "eventHubSku": {
+              "type": "string"
+            },
+            "evHubMessageRetentionInDays": {
+              "type": "int"
+            },
+            "evHubPartitionCount": {
+              "type": "int"
+            },
+            "aksKubernetesVersion": {
+              "type": "string"
+            },
+            "aksEnableRbac": {
+              "type": "bool"
+            },
+            "aksNetworkPlugin": {
+              "type": "string"
+            },
+            "aksEnablePrivateCluster": {
+              "type": "bool"
+            },
+            "aksEnableHttpApplicationRouting": {
+              "type": "bool"
+            },
+            "aksEnableOmsAgent": {
+              "type": "bool"
+            },
+            "aksEnableAzurePolicy": {
+              "type": "bool"
+            },
+            "aksEnableAutoScaling": {
+              "type": "bool"
+            },
+            "logAnalyticsResourceId": {
+              "type": "string"
+            },
+            "cosmosDbAccountName": {
+              "type": "string"
+            }
+          },
+          "functions": [],
+          "variables": {
+            "eventHubName": "telemetry",
+            "apiConsumerGroupName": "api-silo",
+            "processorConsumerGroupName": "processor-silo",
+            "replicatorConsumerGroupName": "replicator"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts/tableServices/tables",
+              "apiVersion": "2021-01-01",
+              "name": "[format('{0}/{1}/{2}', toLower(replace(format('{0}orlnstg', parameters('regionalName')), '-', '')), 'default', 'clusters')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('{0}orlnstg', parameters('regionalName')), '-', '')))]",
+                "[resourceId('Microsoft.Storage/storageAccounts/tableServices', toLower(replace(format('{0}orlnstg', parameters('regionalName')), '-', '')), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/tableServices",
+              "apiVersion": "2021-01-01",
+              "name": "[format('{0}/{1}', toLower(replace(format('{0}orlnstg', parameters('regionalName')), '-', '')), 'default')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('{0}orlnstg', parameters('regionalName')), '-', '')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2021-01-01",
+              "name": "[format('{0}/{1}/{2}', toLower(replace(format('{0}repstg', parameters('regionalName')), '-', '')), 'default', 'checkpoints')]",
+              "properties": {
+                "publicAccess": "None"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', toLower(replace(format('{0}repstg', parameters('regionalName')), '-', '')), 'default')]",
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('{0}repstg', parameters('regionalName')), '-', '')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices",
+              "apiVersion": "2021-01-01",
+              "name": "[format('{0}/{1}', toLower(replace(format('{0}repstg', parameters('regionalName')), '-', '')), 'default')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('{0}repstg', parameters('regionalName')), '-', '')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
+              "apiVersion": "2017-04-01",
+              "name": "[format('{0}/{1}/{2}', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), variables('apiConsumerGroupName'))]",
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'))]",
+                "[resourceId('Microsoft.EventHub/namespaces', format('{0}-evhub', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
+              "apiVersion": "2017-04-01",
+              "name": "[format('{0}/{1}/{2}', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), variables('processorConsumerGroupName'))]",
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'))]",
+                "[resourceId('Microsoft.EventHub/namespaces', format('{0}-evhub', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
+              "apiVersion": "2017-04-01",
+              "name": "[format('{0}/{1}/{2}', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), variables('replicatorConsumerGroupName'))]",
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'))]",
+                "[resourceId('Microsoft.EventHub/namespaces', format('{0}-evhub', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs/authorizationRules",
+              "apiVersion": "2017-04-01",
+              "name": "[format('{0}/{1}/{2}', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), format('{0}-sendlisten', variables('apiConsumerGroupName')))]",
+              "properties": {
+                "rights": [
+                  "Send",
+                  "Listen"
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'))]",
+                "[resourceId('Microsoft.EventHub/namespaces', format('{0}-evhub', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs/authorizationRules",
+              "apiVersion": "2017-04-01",
+              "name": "[format('{0}/{1}/{2}', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), format('{0}-sendlisten', variables('processorConsumerGroupName')))]",
+              "properties": {
+                "rights": [
+                  "Send",
+                  "Listen"
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'))]",
+                "[resourceId('Microsoft.EventHub/namespaces', format('{0}-evhub', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs/authorizationRules",
+              "apiVersion": "2017-04-01",
+              "name": "[format('{0}/{1}/{2}', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), format('{0}-sendlisten', variables('replicatorConsumerGroupName')))]",
+              "properties": {
+                "rights": [
+                  "Send",
+                  "Listen"
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'))]",
+                "[resourceId('Microsoft.EventHub/namespaces', format('{0}-evhub', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs",
+              "apiVersion": "2017-04-01",
+              "name": "[format('{0}/{1}', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'))]",
+              "properties": {
+                "messageRetentionInDays": "[parameters('evHubMessageRetentionInDays')]",
+                "partitionCount": "[parameters('evHubPartitionCount')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces', format('{0}-evhub', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-kvlt', parameters('regionalName')), 'CosmosDbAccountKey')]",
+              "properties": {
+                "value": "[listkeys(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('coreResourceGroupName')), 'Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbAccountName')), '2021-03-01-preview').primaryMasterKey]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kvlt', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-kvlt', parameters('regionalName')), format('OrleansStorageAccountConnectionString{0}', toUpper(parameters('location'))))]",
+              "properties": {
+                "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix=core.windows.net', toLower(replace(format('{0}orlnstg', parameters('regionalName')), '-', '')), listkeys(resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('{0}orlnstg', parameters('regionalName')), '-', ''))), '2021-01-01').keys[0].value)]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kvlt', parameters('regionalName')))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('{0}orlnstg', parameters('regionalName')), '-', '')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-kvlt', parameters('regionalName')), format('ReplicatorStorageAccountConnectionString{0}', toUpper(parameters('location'))))]",
+              "properties": {
+                "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix=core.windows.net', toLower(replace(format('{0}repstg', parameters('regionalName')), '-', '')), listkeys(resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('{0}repstg', parameters('regionalName')), '-', ''))), '2021-01-01').keys[0].value)]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kvlt', parameters('regionalName')))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('{0}repstg', parameters('regionalName')), '-', '')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-kvlt', parameters('regionalName')), format('ApiAuthRule{0}', toUpper(parameters('location'))))]",
+              "properties": {
+                "value": "[listkeys(resourceId('Microsoft.EventHub/namespaces/eventhubs/authorizationRules', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), format('{0}-sendlisten', variables('apiConsumerGroupName'))), '2017-04-01').primaryConnectionString]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs/authorizationRules', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), format('{0}-sendlisten', variables('apiConsumerGroupName')))]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kvlt', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-kvlt', parameters('regionalName')), format('ProcessorAuthRule{0}', toUpper(parameters('location'))))]",
+              "properties": {
+                "value": "[listkeys(resourceId('Microsoft.EventHub/namespaces/eventhubs/authorizationRules', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), format('{0}-sendlisten', variables('processorConsumerGroupName'))), '2017-04-01').primaryConnectionString]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kvlt', parameters('regionalName')))]",
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs/authorizationRules', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), format('{0}-sendlisten', variables('processorConsumerGroupName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-kvlt', parameters('regionalName')), format('ReplicatorAuthRule{0}', toUpper(parameters('location'))))]",
+              "properties": {
+                "value": "[listkeys(resourceId('Microsoft.EventHub/namespaces/eventhubs/authorizationRules', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), format('{0}-sendlisten', variables('replicatorConsumerGroupName'))), '2017-04-01').primaryConnectionString]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kvlt', parameters('regionalName')))]",
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs/authorizationRules', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'), format('{0}-sendlisten', variables('replicatorConsumerGroupName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2018-11-30",
+              "name": "[format('{0}-pod-umid', format('{0}-aks', parameters('regionalName')))]",
+              "location": "[parameters('location')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters', format('{0}-aks', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02-preview",
+              "name": "[format('{0}-ai', parameters('regionalName'))]",
+              "location": "[parameters('location')]",
+              "kind": "other",
+              "properties": {
+                "Application_Type": "other",
+                "WorkspaceResourceId": "[parameters('logAnalyticsResourceId')]"
+              }
+            },
+            {
+              "type": "Microsoft.ContainerService/managedClusters",
+              "apiVersion": "2021-02-01",
+              "name": "[format('{0}-aks', parameters('regionalName'))]",
+              "location": "[parameters('location')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "kubernetesVersion": "[parameters('aksKubernetesVersion')]",
+                "enableRBAC": "[parameters('aksEnableRbac')]",
+                "dnsPrefix": "[format('{0}-aks-dns', parameters('regionalName'))]",
+                "nodeResourceGroup": "[parameters('nodeResourceGroupName')]",
+                "agentPoolProfiles": [
+                  {
+                    "name": "system",
+                    "osDiskSizeGB": 0,
+                    "count": 1,
+                    "vmSize": "Standard_DS2_v2",
+                    "osType": "Linux",
+                    "osDiskType": "Managed",
+                    "type": "VirtualMachineScaleSets",
+                    "mode": "System",
+                    "maxPods": 110,
+                    "availabilityZones": [
+                      "1",
+                      "2",
+                      "3"
+                    ]
+                  },
+                  {
+                    "name": "api",
+                    "osDiskSizeGB": 0,
+                    "count": 1,
+                    "vmSize": "Standard_D2s_v3",
+                    "osType": "Linux",
+                    "osDiskType": "Managed",
+                    "type": "VirtualMachineScaleSets",
+                    "mode": "User",
+                    "maxPods": 110,
+                    "minCount": 1,
+                    "maxCount": 5,
+                    "availabilityZones": [
+                      "1",
+                      "2",
+                      "3"
+                    ],
+                    "enableAutoScaling": "[parameters('aksEnableAutoScaling')]",
+                    "nodeLabels": {
+                      "workload": "api"
+                    }
+                  },
+                  {
+                    "name": "processor",
+                    "osDiskSizeGB": 0,
+                    "count": 1,
+                    "vmSize": "Standard_D2s_v3",
+                    "osType": "Linux",
+                    "osDiskType": "Managed",
+                    "type": "VirtualMachineScaleSets",
+                    "mode": "User",
+                    "maxPods": 110,
+                    "minCount": 1,
+                    "maxCount": 5,
+                    "availabilityZones": [
+                      "1",
+                      "2",
+                      "3"
+                    ],
+                    "enableAutoScaling": "[parameters('aksEnableAutoScaling')]",
+                    "nodeLabels": {
+                      "workload": "processor"
+                    }
+                  },
+                  {
+                    "name": "replicator",
+                    "osDiskSizeGB": 0,
+                    "count": 0,
+                    "vmSize": "Standard_D2s_v3",
+                    "osType": "Linux",
+                    "osDiskType": "Managed",
+                    "type": "VirtualMachineScaleSets",
+                    "mode": "User",
+                    "maxPods": 110,
+                    "minCount": 0,
+                    "maxCount": 5,
+                    "availabilityZones": [
+                      "1",
+                      "2",
+                      "3"
+                    ],
+                    "enableAutoScaling": "[parameters('aksEnableAutoScaling')]",
+                    "nodeLabels": {
+                      "workload": "replicator"
+                    }
+                  }
+                ],
+                "networkProfile": {
+                  "loadBalancerSku": "standard",
+                  "networkPlugin": "[parameters('aksNetworkPlugin')]"
+                },
+                "apiServerAccessProfile": {
+                  "enablePrivateCluster": "[parameters('aksEnablePrivateCluster')]"
+                },
+                "addonProfiles": {
+                  "httpApplicationRouting": {
+                    "enabled": "[parameters('aksEnableHttpApplicationRouting')]"
+                  },
+                  "azurePolicy": {
+                    "enabled": "[parameters('aksEnableAzurePolicy')]"
+                  },
+                  "omsAgent": {
+                    "enabled": "[parameters('aksEnableOmsAgent')]",
+                    "config": {
+                      "logAnalyticsWorkspaceResourceID": "[parameters('logAnalyticsResourceId')]"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2021-01-01",
+              "name": "[toLower(replace(format('{0}orlnstg', parameters('regionalName')), '-', ''))]",
+              "location": "[parameters('location')]",
+              "kind": "StorageV2",
+              "sku": {
+                "tier": "Standard",
+                "name": "Standard_ZRS"
+              },
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters', format('{0}-aks', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2021-01-01",
+              "name": "[toLower(replace(format('{0}repstg', parameters('regionalName')), '-', ''))]",
+              "location": "[parameters('location')]",
+              "kind": "BlockBlobStorage",
+              "sku": {
+                "tier": "Premium",
+                "name": "Premium_ZRS"
+              },
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('{0}orlnstg', parameters('regionalName')), '-', '')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces",
+              "apiVersion": "2018-01-01-preview",
+              "name": "[format('{0}-evhub', parameters('regionalName'))]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[parameters('eventHubSku')]",
+                "tier": "[parameters('eventHubSku')]",
+                "capacity": 1
+              },
+              "properties": {
+                "isAutoInflateEnabled": true,
+                "maximumThroughputUnits": 20,
+                "zoneRedundant": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('{0}repstg', parameters('regionalName')), '-', '')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[format('{0}-kvlt', parameters('regionalName'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "sku": {
+                  "name": "standard",
+                  "family": "A"
+                },
+                "enabledForTemplateDeployment": true,
+                "enableRbacAuthorization": true,
+                "tenantId": "[subscription().tenantId]",
+                "accessPolicies": []
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', format('{0}-evhub', parameters('regionalName')), variables('eventHubName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "scope": "[format('Microsoft.ManagedIdentity/userAssignedIdentities/{0}', format('{0}-pod-umid', format('{0}-aks', parameters('regionalName'))))]",
+              "name": "[guid(format('{0}-aks', parameters('regionalName')), format('{0}-pod-umid', format('{0}-aks', parameters('regionalName'))), 'Managed Identity Operator')]",
+              "properties": {
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-pod-umid', format('{0}-aks', parameters('regionalName'))))).principalId]",
+                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleAssignments', 'f1a07417-d97a-45cb-824c-7a7467783830')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters', format('{0}-aks', parameters('regionalName')))]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kvlt', parameters('regionalName')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-pod-umid', format('{0}-aks', parameters('regionalName'))))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('{0}-aks', parameters('regionalName')))]",
+              "name": "[guid(format('{0}-aks', parameters('regionalName')), 'Monitoring Metrics Publisher')]",
+              "properties": {
+                "principalId": "[reference(resourceId('Microsoft.ContainerService/managedClusters', format('{0}-aks', parameters('regionalName')))).addonProfiles.omsAgent.identity.objectId]",
+                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleAssignments', '3913510d-42f4-4e42-8a64-420c390055eb')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters', format('{0}-aks', parameters('regionalName')))]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kvlt', parameters('regionalName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "scope": "[format('Microsoft.KeyVault/vaults/{0}', format('{0}-kvlt', parameters('regionalName')))]",
+              "name": "[guid(format('{0}-pod-umid', format('{0}-aks', parameters('regionalName'))), format('{0}-kvlt', parameters('regionalName')), 'Key Vault Secrets User')]",
+              "properties": {
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-pod-umid', format('{0}-aks', parameters('regionalName'))))).principalId]",
+                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleAssignments', '4633458b-17de-408a-b874-0445c86b69e6')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kvlt', parameters('regionalName')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-pod-umid', format('{0}-aks', parameters('regionalName'))))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "appInsightsInstrumentationKey": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', format('{0}-ai', parameters('regionalName')))).InstrumentationKey]"
+            },
+            "podIdUserManagedIdentity": {
+              "type": "object",
+              "value": {
+                "name": "[format('{0}-pod-umid', format('{0}-aks', parameters('regionalName')))]",
+                "resourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-pod-umid', format('{0}-aks', parameters('regionalName'))))]",
+                "clientId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-pod-umid', format('{0}-aks', parameters('regionalName'))))).clientId]",
+                "objectId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-pod-umid', format('{0}-aks', parameters('regionalName'))))).principalId]"
+              }
+            },
+            "aks": {
+              "type": "object",
+              "value": {
+                "name": "[format('{0}-aks', parameters('regionalName'))]",
+                "location": "[reference(resourceId('Microsoft.ContainerService/managedClusters', format('{0}-aks', parameters('regionalName'))), '2021-02-01', 'full').location]",
+                "sku": "[reference(resourceId('Microsoft.ContainerService/managedClusters', format('{0}-aks', parameters('regionalName'))), '2021-02-01', 'full').sku]",
+                "identity": "[reference(resourceId('Microsoft.ContainerService/managedClusters', format('{0}-aks', parameters('regionalName'))), '2021-02-01', 'full').identity]",
+                "properties": "[reference(resourceId('Microsoft.ContainerService/managedClusters', format('{0}-aks', parameters('regionalName'))))]"
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-CORE', variables('environmentName')))), 'Microsoft.Resources/deployments', 'core.deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', toUpper(format('{0}-CORE', variables('environmentName'))))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]])))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]])))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "aksAcrRoleAssingmentDeployments",
+        "count": "[length(parameters('regions'))]"
+      },
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2019-10-01",
+      "name": "[format('{0}.aks.acr.contrib.role.deployment', parameters('regions')[copyIndex()])]",
+      "resourceGroup": "[toUpper(format('{0}-CORE', variables('environmentName')))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('regions')[copyIndex()]]"
+          },
+          "acrName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-CORE', variables('environmentName')))), 'Microsoft.Resources/deployments', 'core.deployment'), '2019-10-01').outputs.containerRegistryName.value]"
+          },
+          "aksPrincipalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()])), '2019-10-01').outputs.aks.value.properties.identityProfile.kubeletidentity.objectId]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.3.255.40792",
+              "templateHash": "7661587959635037769"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "acrName": {
+              "type": "string"
+            },
+            "aksPrincipalId": {
+              "type": "string"
+            }
+          },
+          "functions": [],
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
+              "name": "[guid(parameters('acrName'), parameters('aksPrincipalId'), 'Contributor')]",
+              "properties": {
+                "principalId": "[parameters('aksPrincipalId')]",
+                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleAssignments', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-CORE', variables('environmentName')))), 'Microsoft.Resources/deployments', 'core.deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', toUpper(format('{0}-CORE', variables('environmentName'))))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()]))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "aksManagedIdentityOperatorKeyVaultDeployments",
+        "count": "[length(parameters('regions'))]"
+      },
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2019-10-01",
+      "name": "[format('{0}.aks.kvlt.mio.role.deployment', parameters('regions')[copyIndex()])]",
+      "resourceGroup": "[toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "roleName": {
+            "value": "Managed Identity Operator"
+          },
+          "roleId": {
+            "value": "f1a07417-d97a-45cb-824c-7a7467783830"
+          },
+          "existingAks": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()])), '2019-10-01').outputs.aks.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.3.255.40792",
+              "templateHash": "10700996188377254027"
+            }
+          },
+          "parameters": {
+            "roleName": {
+              "type": "string"
+            },
+            "roleId": {
+              "type": "string"
+            },
+            "existingAks": {
+              "type": "object"
+            }
+          },
+          "functions": [],
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[guid(resourceGroup().name, parameters('existingAks').properties.identityProfile.kubeletidentity.objectId, parameters('roleName'))]",
+              "properties": {
+                "principalId": "[parameters('existingAks').properties.identityProfile.kubeletidentity.objectId]",
+                "roleDefinitionId": "[format('{0}/providers/Microsoft.Authorization/roleDefinitions/{1}', subscription().id, parameters('roleId'))]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()]))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]])))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "aksManagedIdentityOperatorNodePoolDeployments",
+        "count": "[length(parameters('regions'))]"
+      },
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2019-10-01",
+      "name": "[format('{0}.aks.nodes.mio.role.deployment', parameters('regions')[copyIndex()])]",
+      "resourceGroup": "[format('{0}-NODES', toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]])))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "roleName": {
+            "value": "Managed Identity Operator"
+          },
+          "roleId": {
+            "value": "f1a07417-d97a-45cb-824c-7a7467783830"
+          },
+          "existingAks": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()])), '2019-10-01').outputs.aks.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.3.255.40792",
+              "templateHash": "10700996188377254027"
+            }
+          },
+          "parameters": {
+            "roleName": {
+              "type": "string"
+            },
+            "roleId": {
+              "type": "string"
+            },
+            "existingAks": {
+              "type": "object"
+            }
+          },
+          "functions": [],
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[guid(resourceGroup().name, parameters('existingAks').properties.identityProfile.kubeletidentity.objectId, parameters('roleName'))]",
+              "properties": {
+                "principalId": "[parameters('existingAks').properties.identityProfile.kubeletidentity.objectId]",
+                "roleDefinitionId": "[format('{0}/providers/Microsoft.Authorization/roleDefinitions/{1}', subscription().id, parameters('roleId'))]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()]))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]])))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "aksVirtualMachineContributorNodePoolDeployments",
+        "count": "[length(parameters('regions'))]"
+      },
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2019-10-01",
+      "name": "[format('{0}.aks.nodes.vmc.role.deployment', parameters('regions')[copyIndex()])]",
+      "resourceGroup": "[format('{0}-NODES', toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]])))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "roleName": {
+            "value": "Virtual Machine Contributor"
+          },
+          "roleId": {
+            "value": "9980e02c-c2be-4d73-94e8-173b1dc7cf3c"
+          },
+          "existingAks": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()])), '2019-10-01').outputs.aks.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.3.255.40792",
+              "templateHash": "10700996188377254027"
+            }
+          },
+          "parameters": {
+            "roleName": {
+              "type": "string"
+            },
+            "roleId": {
+              "type": "string"
+            },
+            "existingAks": {
+              "type": "object"
+            }
+          },
+          "functions": [],
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[guid(resourceGroup().name, parameters('existingAks').properties.identityProfile.kubeletidentity.objectId, parameters('roleName'))]",
+              "properties": {
+                "principalId": "[parameters('existingAks').properties.identityProfile.kubeletidentity.objectId]",
+                "roleDefinitionId": "[format('{0}/providers/Microsoft.Authorization/roleDefinitions/{1}', subscription().id, parameters('roleId'))]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()]))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]])))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "aksPodIdentityDeployment",
+        "count": "[length(parameters('regions'))]"
+      },
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2019-10-01",
+      "name": "[format('{0}.aks.podidentity.deployment', parameters('regions')[copyIndex()])]",
+      "resourceGroup": "[toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "podIdUserManagedIdentity": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()])), '2019-10-01').outputs.podIdUserManagedIdentity.value]"
+          },
+          "existingAks": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()])), '2019-10-01').outputs.aks.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.3.255.40792",
+              "templateHash": "220222283655529190"
+            }
+          },
+          "parameters": {
+            "podIdUserManagedIdentity": {
+              "type": "object"
+            },
+            "existingAks": {
+              "type": "object"
+            }
+          },
+          "functions": [],
+          "variables": {
+            "podIdentityProperties": {
+              "podIdentityProfile": {
+                "enabled": true
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ContainerService/managedClusters",
+              "apiVersion": "2021-02-01",
+              "name": "[parameters('existingAks').name]",
+              "location": "[parameters('existingAks').location]",
+              "identity": "[parameters('existingAks').identity]",
+              "properties": "[union(parameters('existingAks').properties, variables('podIdentityProperties'))]"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "aksManagedIdentityOperatorKeyVaultDeployments",
+        "aksManagedIdentityOperatorNodePoolDeployments",
+        "aksVirtualMachineContributorNodePoolDeployments",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()]))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[copyIndex()]))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]])))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "aksPodIdentityCommands": {
+      "type": "array",
+      "copy": {
+        "count": "[length(range(0, length(parameters('regions'))))]",
+        "input": "[format('az aks pod-identity add -g {0} --cluster-name {1} --namespace default  -n {2}-podid --identity-resource-id {3}', toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[range(0, length(parameters('regions')))[copyIndex()]]])), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[range(0, length(parameters('regions')))[copyIndex()]])), '2019-10-01').outputs.aks.value.name, reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[range(0, length(parameters('regions')))[copyIndex()]])), '2019-10-01').outputs.aks.value.name, reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, toUpper(format('{0}-{1}', variables('environmentName'), variables('regionNameMap')[parameters('regions')[copyIndex()]]))), 'Microsoft.Resources/deployments', format('region.{0}.deployment', parameters('regions')[range(0, length(parameters('regions')))[copyIndex()]])), '2019-10-01').outputs.podIdUserManagedIdentity.value.resourceId)]"
+      }
+    }
+  }
+}

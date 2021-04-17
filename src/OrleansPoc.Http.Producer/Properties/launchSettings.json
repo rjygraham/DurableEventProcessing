@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "OrleansPoc.Http.Producer": {
+      "commandName": "Project"
+    },
+    "Docker (1)": {
+      "commandName": "Docker"
+    }
+  }
+}

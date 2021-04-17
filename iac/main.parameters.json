@@ -1,0 +1,57 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "regions": {
+            "value": [
+                "eastus",
+                "westus2"
+            ]
+        },
+        "primaryRegionIndex": {
+            "value": 0
+        },
+        "name": {
+            "value": "rgom"
+        },
+        "environment": {
+            "value": "tpoc"
+        },
+        "eventHubSku": {
+            "value": "Standard"
+        },
+        "evHubMessageRetentionInDays": {
+            "value": 1
+        },
+        "evHubPartitionCount": {
+            "value": 32
+        },
+        "aksKubernetesVersion": {
+            "value": "1.19.7"
+        },
+        "aksEnableRbac": {
+            "value": true
+        },
+        "aksNetworkPlugin": {
+            "value": "azure"
+        },
+        "aksEnablePrivateCluster": {
+            "value": false
+        },
+        "aksEnableHttpApplicationRouting": {
+            "value": false
+        },
+        "aksEnableOmsAgent": {
+            "value": true
+        },
+        "aksEnableAzurePolicy": {
+            "value": false
+        },
+        "aksEnableAutoScaling": {
+            "value": true
+        },
+        "logAnalyticsResourceId": {
+            "value": "/subscriptions/f744c2ea-2976-41d9-9719-ff08dd26b5bd/resourcegroups/rgom-dev-ops/providers/microsoft.operationalinsights/workspaces/rgom-dev-logs"
+        }
+    }
+}
