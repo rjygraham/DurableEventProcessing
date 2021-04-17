@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "secretsvalidation.fullname" . }}
+  labels:
+    {{- include "secretsvalidation.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "secretsvalidation.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "secretsvalidation.fullname" . }}
+        aadpodidbinding: "{{ .Values.aksClusterName }}-podid"
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - "/bin/sleep"
+            - "10000"
+          volumeMounts:
+          - name: kvlt-secrets-store
+            mountPath: "/mnt/secrets-store"
+            readOnly: true
+      volumes:
+        - name: kvlt-secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: primary-kvlt-secrets
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
