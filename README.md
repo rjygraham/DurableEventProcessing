@@ -20,7 +20,7 @@ Once the above tools are installed, complete each of these sections in order:
 1. [Add pod identity to the AKS clusters](docs/2.podidentity.md)
 1. [Add the Azure Key Vault Secrets Store CSI driver to AKS](docs/3.akvsecretsstore.md)
 1. [Build and push the Docker images for the OrleansPoc.Api.SiloHost and OrleansPoc.Processor.SiloHost projects](docs/4.buildimages.md)
-1. [Install the Api.SiloHost and Processor.SiloHost charts](docs/5.installapps.md)
+1. [Install the Api.SiloHost, Processor.SiloHost, and HTTP Producer applcations](docs/5.installapps.md)
 1. [Deploy Azure Front Door](docs/6.frontdoor.md)
 
 ## Usage

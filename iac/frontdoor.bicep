@@ -9,7 +9,7 @@ param environment string
 @description('Array of the api-silo service IP addresses created in each AKS cluster')
 param ipAddresses array
 
-var frontDoorName = toLower('${name}-${environment}-fd')
+var frontDoorName = toLower('${name}-${environment}-core-fd')
 
 resource frontDoor 'Microsoft.Network/frontDoors@2020-05-01' = {
   name: frontDoorName
@@ -46,7 +46,7 @@ resource frontDoor 'Microsoft.Network/frontDoors@2020-05-01' = {
       {
         name: 'default'
         properties: {
-          path: '/'
+          path: '/health'
           protocol: 'Http'
           intervalInSeconds: 120
         }
