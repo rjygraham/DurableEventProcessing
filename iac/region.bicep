@@ -297,10 +297,24 @@ resource keyVault 'Microsoft.KeyVault/vaults@2020-04-01-preview' = {
     accessPolicies: []
   }
 
+  resource appInsightsInstrumentationKeySecret 'secrets' = {
+    name: 'AppInsightsInstrumentationKey${toUpper(location)}'
+    properties: {
+      value: appInsights.properties.InstrumentationKey
+    }
+  }
+
+  resource cosmosDbAccountEndpoint 'secrets' = {
+    name: 'CosmosDbAccountEndpoint'
+    properties: {
+      value: cosmosDb.properties.documentEndpoint
+    }
+  }
+
   resource cosmosDbAccountKey 'secrets' = {
     name: 'CosmosDbAccountKey'
     properties: {
-      value: listkeys(cosmosDb.id, '2021-03-01-preview').primaryMasterKey
+      value: listkeys(cosmosDb.id, cosmosDb.apiVersion).primaryMasterKey
     }
   }
 
@@ -320,21 +334,21 @@ resource keyVault 'Microsoft.KeyVault/vaults@2020-04-01-preview' = {
   resource apiAuthRuleSecret 'secrets' = {
     name: 'ApiAuthRule${toUpper(location)}'
     properties: {
-      value: listkeys(evHubNamespace::evHub::apiAuthRule.id, '2017-04-01').primaryConnectionString
+      value: listkeys(evHubNamespace::evHub::apiAuthRule.id, evHubNamespace::evHub::apiAuthRule.apiVersion).primaryConnectionString
     }
   }
 
   resource processorAuthRuleSecret 'secrets' = {
     name: 'ProcessorAuthRule${toUpper(location)}'
     properties: {
-      value: listkeys(evHubNamespace::evHub::processorAuthRule.id, '2017-04-01').primaryConnectionString
+      value: listkeys(evHubNamespace::evHub::processorAuthRule.id, evHubNamespace::evHub::processorAuthRule.apiVersion).primaryConnectionString
     }
   }
 
   resource replicatorAuthRuleSecret 'secrets' = {
     name: 'ReplicatorAuthRule${toUpper(location)}'
     properties: {
-      value: listkeys(evHubNamespace::evHub::replicatorAuthRule.id, '2017-04-01').primaryConnectionString
+      value: listkeys(evHubNamespace::evHub::replicatorAuthRule.id, evHubNamespace::evHub::replicatorAuthRule.apiVersion).primaryConnectionString
     }
   }
 }
