@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "OrleansPoc.SiloHost": {
-      "commandName": "Project",
-      "commandLineArgs": "--environment Development"
-    }
-  }
-}
